@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
+import os from 'os';
 import path from 'path';
 import * as anchor from '@coral-xyz/anchor';
 import { Connection, PublicKey } from '@solana/web3.js';
@@ -11,7 +12,10 @@ const PROGRAM_ID = new PublicKey(
   process.env.PROGRAM_ID || 'ByASCyH6YjXWa9KS1qdGVGxH5vgQFAC4Aauh4Z89ut9t'
 );
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const IS_VERCEL = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
+const DATA_DIR = IS_VERCEL
+  ? path.join(os.tmpdir(), 'arcium-auction-data')
+  : path.resolve(process.cwd(), 'data');
 const METADATA_FILE = path.join(DATA_DIR, 'auction-metadata.json');
 const IDL_PATH = path.resolve(process.cwd(), 'src', 'idl', 'auction.json');
 
