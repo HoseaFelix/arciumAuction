@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",
     "test": "anchor test",
@@ -22,7 +22,7 @@
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",
     "canvas-confetti": "^1.9.4",
-    "next": "15.3.2",
+    "next": "^16.2.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "stream-browserify": "^3.0.0",

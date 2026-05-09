@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   transpilePackages: ['@solana/wallet-adapter-react', '@solana/wallet-adapter-react-ui'],
   webpack: (config) => {
     config.resolve.fallback = {
