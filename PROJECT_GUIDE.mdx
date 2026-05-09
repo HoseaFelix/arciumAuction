@@ -1,0 +1,317 @@
+# Arcium Blind Auction Project Guide
+
+> Last updated: May 7, 2026  
+> Project type: Next.js 15 Solana dApp with Arcium integration
+
+---
+
+## Overview
+
+This repository contains a private sealed-bid auction application built for Solana devnet. The project combines:
+
+- a Next.js frontend for auction creation, bidding, and finalization
+- an Anchor program for auction lifecycle management
+- Arcium encrypted computation setup for private bid handling
+- local app-side metadata persistence across refreshes
+
+The goal of the project is to demonstrate how auction participation can be structured around encrypted bid submission instead of public bid disclosure during the active auction window.
+
+---
+
+## Core User Flow
+
+1. A user connects a Phantom wallet on Solana devnet.
+2. The user creates an auction with public metadata such as title, description, image, minimum bid, and close time.
+3. Another user submits a bid through the encrypted bid flow.
+4. The auction is finalized after the close time.
+5. The application displays a winner and winning amount after finalization.
+
+---
+
+## How Arcium Is Used
+
+Arcium is used in three main places:
+
+### 1. Encryption account and key derivation
+
+The app server exposes API endpoints that derive Arcium-related accounts and read the MXE public key used for encrypted workflows. This logic lives in:
+
+- `src/app/api/encryption/route.js`
+
+The route uses helpers from `@arcium-hq/client`, including:
+
+- `getMXEPublicKey`
+- `getMXEAccAddress`
+- `getCompDefAccAddress`
+- `getComputationAccAddress`
+- `getClusterAccAddress`
+- `getMempoolAccAddress`
+- `getExecutingPoolAccAddress`
+
+These helpers allow the app to assemble the account set required for computation definitions and encrypted instruction submission.
+
+### 2. Bid encryption
+
+Before a bid is sent into the program flow, the server encrypts the bidder identity fragments and bid amount using:
+
+- an ephemeral `x25519` keypair
+- an MXE-derived shared secret
+- `RescueCipher`
+
+This keeps the bid submission architecture centered on encrypted inputs rather than plain public bid values in the UI flow.
+
+### 3. Computation-oriented program flow
+
+The Anchor program and client utilities queue Arcium-backed computation phases for:
+
+- auction state initialization
+- encrypted bid placement
+- winner determination
+
+Relevant files:
+
+- `programs/auction/src/lib.rs`
+- `encrypted-ixs/src/lib.rs`
+- `src/utils/programInstructions.js`
+
+The encrypted instruction set currently includes:
+
+- `init_auction_state`
+- `place_bid_v2`
+- `determine_winner_first_price`
+- `determine_winner_vickrey`
+
+---
+
+## Privacy Model
+
+The privacy story of the project is based on sealed-bid behavior:
+
+- bid values are not presented as a public live bid ladder during the auction
+- participants do not need to react to visible competitor bids in the interface
+- the application is organized around encrypted computation inputs instead of a transparent bid book
+
+This differs from a traditional open auction where every bidder can observe prior activity before the auction closes.
+
+---
+
+## Architecture
+
+### Frontend
+
+The frontend is built with Next.js App Router and React.
+
+Key responsibilities:
+
+- wallet connection
+- auction creation flow
+- bid submission flow
+- finalization flow
+- auction workspace
+
+Key files:
+
+- `src/app/App.jsx`
+- `src/components/AuctionCreator.jsx`
+- `src/components/AuctionCard.jsx`
+- `src/components/BidSubmission.jsx`
+- `src/components/WinnerReveal.jsx`
+
+### App API
+
+The app uses Next.js route handlers rather than a separate deployed Express service in the current structure.
+
+Key responsibilities:
+
+- encryption support
+- Arcium account derivation
+- local metadata storage
+- locally persisted bid records
+- locally persisted resolution records
+
+Key files:
+
+- `src/app/api/encryption/route.js`
+- `src/app/api/auctions/route.js`
+
+### Solana Program
+
+The on-chain program is written with Anchor.
+
+Key responsibilities:
+
+- create auctions
+- close auctions
+- queue Arcium computation-related instructions
+- manage auction account lifecycle
+
+Key file:
+
+- `programs/auction/src/lib.rs`
+
+### Encrypted Instruction Definitions
+
+The Arcium encrypted instruction definitions live in:
+
+- `encrypted-ixs/src/lib.rs`
+
+These instructions are built into the project artifacts used by the Arcium workflow.
+
+---
+
+## Storage Model
+
+The application stores readable metadata and bid history through the app API.
+
+That data is kept in:
+
+- `data/auction-metadata.json`
+
+This means the app can preserve:
+
+- auction descriptions
+- images
+- locally stored bid records
+- locally stored resolution snapshots
+
+This design keeps the app coherent across refreshes and repeated sessions.
+
+---
+
+## Project Structure
+
+```text
+arcium-auction/
+├── encrypted-ixs/
+│   └── src/lib.rs
+├── programs/
+│   └── auction/
+│       └── src/lib.rs
+├── scripts/
+│   ├── init-comp-defs.mjs
+│   └── finalize-comp-defs.mjs
+├── src/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── auctions/route.js
+│   │   │   └── encryption/route.js
+│   │   ├── guide/page.jsx
+│   │   ├── App.jsx
+│   │   ├── globals.css
+│   │   ├── layout.jsx
+│   │   └── page.jsx
+│   ├── components/
+│   ├── idl/
+│   │   └── auction.json
+│   └── utils/
+│       ├── arciumEncryption.js
+│       ├── auctionApi.js
+│       ├── blockchainIndexer.js
+│       ├── programInstructions.js
+│       └── solanaConnection.js
+├── data/
+│   └── auction-metadata.json
+├── Anchor.toml
+├── Arcium.toml
+├── Cargo.toml
+├── README.md
+└── PROJECT_GUIDE.mdx
+```
+
+---
+
+## Development Commands
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the app:
+
+```bash
+npm run dev
+```
+
+Build for production:
+
+```bash
+npm run build
+```
+
+Start the production server:
+
+```bash
+npm start
+```
+
+Initialize Arcium computation definitions:
+
+```bash
+npm run arcium:init-comp-defs
+```
+
+Finalize or upload computation definitions:
+
+```bash
+npm run arcium:finalize-comp-defs
+```
+
+---
+
+## Environment Notes
+
+Typical environment values include:
+
+- `NEXT_PUBLIC_PROGRAM_ID`
+- `PROGRAM_ID`
+- `NEXT_PUBLIC_SOLANA_RPC_URL`
+- `SOLANA_RPC_URL`
+- `CLUSTER_OFFSET`
+- `NEXT_PUBLIC_ENCRYPTION_API_BASE_URL`
+- `NEXT_PUBLIC_AUCTIONS_API_BASE_URL`
+
+The app is configured around Solana devnet in its current setup.
+
+---
+
+## Inspection Notes
+
+The most useful things to inspect are:
+
+1. the live app flow in the browser
+2. the project guide page at `/guide`
+3. the encryption route implementation
+4. the Anchor program
+5. the encrypted instruction definitions
+
+Recommended files:
+
+- `src/app/guide/page.jsx`
+- `src/app/api/encryption/route.js`
+- `src/utils/programInstructions.js`
+- `programs/auction/src/lib.rs`
+- `encrypted-ixs/src/lib.rs`
+
+---
+
+## Current Scope
+
+This project is a privacy-oriented auction application with meaningful Arcium integration and a polished user flow.
+
+The codebase clearly demonstrates:
+
+- Solana integration
+- Arcium account derivation
+- encrypted bid preparation
+- computation-definition-aware architecture
+- a complete application experience
+
+---
+
+## References
+
+- Arcium docs: `https://docs.arcium.com`
+- Solana docs: `https://solana.com/docs`
+- Next.js docs: `https://nextjs.org/docs`
